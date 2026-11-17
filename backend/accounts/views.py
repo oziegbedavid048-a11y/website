@@ -30,6 +30,8 @@ from config.ratelimit import failure_blocked, rate_limit, record_failure, too_ma
 
 from . import verification
 from .models import Application, ContactMessage
+from .emails import password_changed_email
+from .validation import password_problems
 from .validation import DETAIL_STEPS, REVIEW_STEP, STEP_FIELDS, validate_registration, validate_step
 
 User = get_user_model()
@@ -424,3 +426,76 @@ def contact(request):
         user=request.user if request.user.is_authenticated else None,
     )
     return JsonResponse({'ok': True}, status=201)
+
+
+# ---------- forgotten password ----------
+
+RESET_SENT = ('If an account uses this email, we have sent it a 6-digit code. '
+              'It may take a minute to arrive. Check your spam folder too.')
+
+
+@require_http_methods(['POST'])
+@rate_limit('email-code', by='ip')
+def password_forgot(request):
+    """Email a reset code. The answer is the same whether or not the account exists."""
+    data = _json_body(request)
+    if data is None:
+        return _bad_request({'body': ['Invalid request.']})
+    email = str(data.get('email', '')).strip().lower()[:254]
+    try:
+        validate_email(email)
+    except ValidationError:
+        return _bad_request({'email': ['Enter a valid email address.']})
+    allowed, retry = limit_check('email-code-email', email)
+    if not allowed:
+        return too_many(retry, 'We have sent several codes to this address. Please try again later.')
+    body = {'sent': True, 'message': RESET_SENT, 'resend_in': int(verification.RESEND_AFTER.total_seconds())}
+    user = User.objects.filter(username__iexact=email, is_active=True).first()
+    if user is None:
+        log.info('password reset asked for an unknown email from %s', client_ip(request))
+        return JsonResponse(body)
+    try:
+        seconds, code = verification.send_code(email, purpose='reset')
+    except verification.Cooldown as wait:
+        body['resend_in'] = wait.seconds
+        return JsonResponse(body)
+    except verification.SendFailed as failure:
+        log.error('could not send a password reset code: %s', failure)
+        return _bad_request({'form': ['We could not send the email right now. Please try again shortly.']}, status=503)
+    if settings.DEBUG and 'console' in settings.EMAIL_BACKEND:
+        body['dev_code'] = code  # development only, never in production
+    return JsonResponse(body)
+
+
+@require_http_methods(['POST'])
+@rate_limit('email-verify', by='ip')
+def password_reset(request):
+    """Check the reset code and set the new password. The client then signs in as usual."""
+    data = _json_body(request)
+    if data is None:
+        return _bad_request({'body': ['Invalid request.']})
+    email = str(data.get('email', '')).strip().lower()[:254]
+    password = data.get('password', '')
+    user = User.objects.filter(username__iexact=email, is_active=True).first()
+    problems = password_problems(password, email) if isinstance(password, str) else ['Enter a new password.']
+    if isinstance(password, str) and len(password) > MAX_PASSWORD_LENGTH:
+        problems = ['Use 128 characters or fewer.']
+    if problems:
+        return _bad_request({'password': problems})
+    try:
+        # Unknown emails have no code, so they fail here with the same message as a wrong code.
+        verification.check_code(email, data.get('code'), purpose='reset')
+    except verification.CodeProblem as problem:
+        log.warning('wrong password reset code for %s from %s', email, client_ip(request))
+        return _bad_request({'code': [str(problem)]})
+    if user is None:
+        return _bad_request({'code': ['That code has expired. Ask for a new one.']})
+    user.set_password(password)
+    user.save(update_fields=['password'])  # every existing session ends: the session hash changes
+    cache.delete(_throttle_key(request, email))  # a fresh start for sign-in from this address
+    log.info('password reset for %s from %s', email, client_ip(request))
+    try:
+        password_changed_email(user.email or email).send(fail_silently=False)
+    except Exception as exc:  # noqa: BLE001 (the password is changed either way)
+        log.error('could not send the password changed email: %s', exc)
+    return JsonResponse({'reset': True})

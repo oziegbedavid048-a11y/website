@@ -16,7 +16,7 @@ from django.core import signing
 from django.db import transaction
 from django.utils import timezone
 
-from .emails import sign_in_code_email, verification_code_email
+from .emails import password_reset_code_email, sign_in_code_email, verification_code_email
 from .models import EmailCode
 
 CODE_TTL = timedelta(minutes=10)
@@ -46,7 +46,7 @@ def _hash(email, code, purpose='signup'):
     return hmac.new(settings.SECRET_KEY.encode(), f'{label}:{code}'.encode(), hashlib.sha256).hexdigest()
 
 
-EMAILS = {'signup': verification_code_email, 'signin': sign_in_code_email}
+EMAILS = {'signup': verification_code_email, 'signin': sign_in_code_email, 'reset': password_reset_code_email}
 
 
 def send_code(email, purpose='signup'):

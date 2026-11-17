@@ -253,3 +253,54 @@ def trade_alert_email(to, rows, subject):
         + f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-top:1px solid #e4e7eb;">{cells}</table>'
     )
     return _send(to, subject, text, _layout(body))
+
+
+# ---------- password reset ----------
+
+def password_reset_code_email(to, code, minutes):
+    """The 6-digit code that lets a client choose a new password."""
+    subject = f'Reset your {BRAND} password'
+    text = (
+        'Hello,\n\n'
+        f'We received a request to reset the password for your {BRAND} account. '
+        'Use the code below to choose a new password.\n\n'
+        f'    {code}\n\n'
+        f'This code expires in {minutes} minutes. Do not share it with anyone. '
+        f'{BRAND} will never ask you for this code.\n\n'
+        'If you did not ask to reset your password, you can ignore this email. Your password will not change.\n\n'
+        f'Regards,\n{BRAND}\n\n'
+        '--\n'
+        + _footer_text()
+    )
+    body = (
+        _p('Hello,')
+        + _p(f'We received a request to reset the password for your {BRAND} account. '
+             'Use the code below to choose a new password.')
+        + f'<p style="margin:8px 0 24px;font-size:32px;line-height:1.2;font-weight:700;letter-spacing:6px;color:{NAVY};">{escape(code)}</p>'
+        + _p(f'This code expires in {minutes} minutes. Do not share it with anyone. '
+             f'{BRAND} will never ask you for this code.')
+        + _p('If you did not ask to reset your password, you can ignore this email. Your password will not change.')
+        + _p(f'Regards,<br>{BRAND}')
+    )
+    return _send(to, subject, text, _layout(body))
+
+
+def password_changed_email(to):
+    """Confirms a password change, so a client notices one they did not make."""
+    subject = f'Your {BRAND} password was changed'
+    text = (
+        'Hello,\n\n'
+        f'The password for your {BRAND} account was just changed, and you have been signed out on all devices.\n\n'
+        f'If you made this change, no action is needed. If you did not, contact us at {_support_email()} straight away.\n\n'
+        f'Regards,\n{BRAND}\n\n'
+        '--\n'
+        + _footer_text()
+    )
+    body = (
+        _p('Hello,')
+        + _p(f'The password for your {BRAND} account was just changed, and you have been signed out on all devices.')
+        + _p('If you made this change, no action is needed. If you did not, contact us at '
+             f'<a href="mailto:{escape(_support_email())}" style="color:{NAVY};">{escape(_support_email())}</a> straight away.')
+        + _p(f'Regards,<br>{BRAND}')
+    )
+    return _send(to, subject, text, _layout(body))

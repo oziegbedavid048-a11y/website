@@ -6,7 +6,6 @@ import { emailOk } from '../lib/validation.js';
 import { safeNext } from '../lib/safety.js';
 import { CheckboxField, FormAlert, PasswordField, TextField, focusFirstError } from '../components/Form.jsx';
 import { Logo } from '../components/ui.jsx';
-import { contact } from '../content/site.js';
 
 export { safeNext } from '../lib/safety.js';
 
@@ -21,7 +20,6 @@ export default function SignIn() {
     params.get('idle') ? 'You were signed out after 30 minutes without activity. Please sign in again.' : '',
   );
   const [busy, setBusy] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   // After the password: the code we emailed. { email, devCode } while waiting for it.
   const [step, setStep] = useState(null);
   const [code, setCode] = useState('');
@@ -195,16 +193,10 @@ export default function SignIn() {
             <PasswordField value={form.password} onChange={set} error={errors.password} />
             <div className="auth__row">
               <CheckboxField name="remember" checked={form.remember} onChange={set}>Keep me signed in</CheckboxField>
-              <button type="button" className="text-btn" onClick={() => setShowHelp((s) => !s)} aria-expanded={showHelp}>
+              <Link to="/forgot-password" state={{ email: form.email.trim() }} className="text-btn">
                 Forgot password?
-              </button>
+              </Link>
             </div>
-            {showHelp && (
-              <p className="auth__help">
-                To reset your password, call us at <a href={contact.phoneHref}>{contact.phone}</a>
-                {contact.email && <> or email <a href={`mailto:${contact.email}`}>{contact.email}</a></>}. We will verify your identity first.
-              </p>
-            )}
             <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
               {busy ? <><Loader2 size={18} className="spin" aria-hidden="true" /> Signing in…</> : 'Sign in'}
             </button>

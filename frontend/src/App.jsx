@@ -6,6 +6,7 @@ import CookieBanner from './components/CookieBanner.jsx';
 import Home from './pages/Home.jsx';
 import SignIn from './pages/SignIn.jsx';
 import SignUp from './pages/SignUp.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
 import Terminal from './pages/Terminal.jsx';
 import { VerifyPage } from './pages/Verify.jsx';
 import {
@@ -86,6 +87,7 @@ export default function App() {
         {/* Focused flows without the marketing header, like the real broker sites. */}
         <Route path="sign-in" element={<SignIn />} />
         <Route path="sign-up" element={<SignUp />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
 
         {/* Signed-in client area */}
         <Route path="account" element={<AccountHome />} />
